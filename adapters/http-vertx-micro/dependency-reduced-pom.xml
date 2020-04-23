@@ -46,6 +46,11 @@
                 <annotationProcessorPaths>
                   <path>
                     <groupId>io.micronaut</groupId>
+                    <artifactId>micronaut-graal</artifactId>
+                    <version>${micronaut.version}</version>
+                  </path>
+                  <path>
+                    <groupId>io.micronaut</groupId>
                     <artifactId>micronaut-inject-java</artifactId>
                     <version>${micronaut.version}</version>
                   </path>
@@ -63,6 +68,11 @@
               <arg>-parameters</arg>
             </compilerArgs>
             <annotationProcessorPaths>
+              <path>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-graal</artifactId>
+                <version>${micronaut.version}</version>
+              </path>
               <path>
                 <groupId>io.micronaut</groupId>
                 <artifactId>micronaut-inject-java</artifactId>
@@ -125,73 +135,15 @@
           <plugin>
             <groupId>io.fabric8</groupId>
             <artifactId>docker-maven-plugin</artifactId>
-            <version>0.32.0</version>
-            <executions>
-              <execution>
-                <id>build_images</id>
-                <phase>package</phase>
-                <goals>
-                  <goal>build</goal>
-                </goals>
-                <configuration>
-                  <images>
-                    <image>
-                      <build>
-                        <from>docker.io/openjdk:11-jre-slim</from>
-                        <ports>
-                          <port>8080</port>
-                          <port>8443</port>
-                          <port>8088</port>
-                        </ports>
-                        <cmd>
-                          <exec>
-                            <arg>java</arg>
-                            <arg>--illegal-access=permit</arg>
-                            <arg>-Dvertx.cacheDirBase=/tmp</arg>
-                            <arg>-jar</arg>
-                            <arg>/opt/hono/hono-adapter-http-vertx-micro-1.3.0-SNAPSHOT.jar</arg>
-                          </exec>
-                        </cmd>
-                        <assembly>
-                          <mode>dir</mode>
-                          <basedir>/</basedir>
-                          <inline>
-                            <fileSets>
-                              <fileSet>
-                                <directory>/home/hak8fe/git/hono/adapters/http-vertx-micro/target</directory>
-                                <outputDirectory>opt/hono</outputDirectory>
-                                <includes>
-                                  <include>hono-adapter-http-vertx-micro-1.3.0-SNAPSHOT.jar</include>
-                                </includes>
-                              </fileSet>
-                            </fileSets>
-                          </inline>
-                        </assembly>
-                        <maintainer>The Eclipse Hono project</maintainer>
-                        <labels>
-                          <project>Eclipse Hono</project>
-                        </labels>
-                        <tags>
-                          <tag>latest</tag>
-                          <tag />
-                        </tags>
-                        <imagePullPolicy>Always</imagePullPolicy>
-                      </build>
-                      <name>index.docker.io/eclipse/%a:%v</name>
-                    </image>
-                  </images>
-                </configuration>
-              </execution>
-            </executions>
             <configuration>
               <images>
                 <image>
                   <build>
-                    <from>docker.io/openjdk:11-jre-slim</from>
+                    <from>${java-base-image.name}</from>
                     <ports>
                       <port>8080</port>
                       <port>8443</port>
-                      <port>8088</port>
+                      <port>${vertx.health.port}</port>
                     </ports>
                     <cmd>
                       <exec>
@@ -199,7 +151,7 @@
                         <arg>--illegal-access=permit</arg>
                         <arg>-Dvertx.cacheDirBase=/tmp</arg>
                         <arg>-jar</arg>
-                        <arg>/opt/hono/hono-adapter-http-vertx-micro-1.3.0-SNAPSHOT.jar</arg>
+                        <arg>/opt/hono/${project.artifactId}-${project.version}.jar</arg>
                       </exec>
                     </cmd>
                     <assembly>
@@ -208,26 +160,16 @@
                       <inline>
                         <fileSets>
                           <fileSet>
-                            <directory>/home/hak8fe/git/hono/adapters/http-vertx-micro/target</directory>
+                            <directory>${project.build.directory}</directory>
                             <outputDirectory>opt/hono</outputDirectory>
                             <includes>
-                              <include>hono-adapter-http-vertx-micro-1.3.0-SNAPSHOT.jar</include>
+                              <include>${project.artifactId}-${project.version}.jar</include>
                             </includes>
                           </fileSet>
                         </fileSets>
                       </inline>
                     </assembly>
-                    <maintainer>The Eclipse Hono project</maintainer>
-                    <labels>
-                      <project>Eclipse Hono</project>
-                    </labels>
-                    <tags>
-                      <tag>latest</tag>
-                      <tag />
-                    </tags>
-                    <imagePullPolicy>Always</imagePullPolicy>
                   </build>
-                  <name>index.docker.io/eclipse/%a:%v</name>
                 </image>
               </images>
             </configuration>
@@ -257,6 +199,46 @@
     </profile>
   </profiles>
   <dependencies>
+    <dependency>
+      <groupId>org.graalvm.nativeimage</groupId>
+      <artifactId>svm</artifactId>
+      <version>20.0.0</version>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>svm-hosted-native-linux-amd64</artifactId>
+          <groupId>org.graalvm.nativeimage</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>svm-hosted-native-darwin-amd64</artifactId>
+          <groupId>org.graalvm.nativeimage</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>svm-hosted-native-windows-amd64</artifactId>
+          <groupId>org.graalvm.nativeimage</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>graal-sdk</artifactId>
+          <groupId>org.graalvm.sdk</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>objectfile</artifactId>
+          <groupId>org.graalvm.nativeimage</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>pointsto</artifactId>
+          <groupId>org.graalvm.nativeimage</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>truffle-nfi</artifactId>
+          <groupId>org.graalvm.truffle</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>compiler</artifactId>
+          <groupId>org.graalvm.compiler</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
@@ -302,6 +284,42 @@
         <exclusion>
           <artifactId>micronaut-test-core</artifactId>
           <groupId>io.micronaut.test</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>3.3.3</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>byte-buddy</artifactId>
+          <groupId>net.bytebuddy</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>byte-buddy-agent</artifactId>
+          <groupId>net.bytebuddy</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>objenesis</artifactId>
+          <groupId>org.objenesis</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-junit5</artifactId>
+      <version>3.8.5</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>vertx-rx-java</artifactId>
+          <groupId>io.vertx</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>vertx-rx-java2</artifactId>
+          <groupId>io.vertx</groupId>
         </exclusion>
       </exclusions>
     </dependency>
