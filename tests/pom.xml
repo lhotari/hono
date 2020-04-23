@@ -551,7 +551,7 @@ Test cases are run against Docker images of Hono server + (Apache Qpid Dispatch 
                   <alias>http-adapter</alias>
                   <build>
                     <imagePullPolicy>IfNotPresent</imagePullPolicy>
-                    <from>${docker.image.org-name}/hono-adapter-http-vertx:${project.version}</from>
+                    <from>${docker.image.org-name}/hono-adapter-http-vertx-micro:${project.version}</from>
                     <assembly>
                       <mode>dir</mode>
                       <basedir>/</basedir>
@@ -602,6 +602,7 @@ Test cases are run against Docker images of Hono server + (Apache Qpid Dispatch 
                     <env>
                       <LOGGING_CONFIG>file:/etc/hono/logback-spring.xml</LOGGING_CONFIG>
                       <SPRING_CONFIG_LOCATION>file:/etc/hono/</SPRING_CONFIG_LOCATION>
+                      <MICRONAUT_CONFIG_FILES>/etc/hono/application.yml</MICRONAUT_CONFIG_FILES>
                       <SPRING_PROFILES_ACTIVE>${logging.profile}</SPRING_PROFILES_ACTIVE>
                       <JDK_JAVA_OPTIONS>${default.java.options} ${http.java.options}</JDK_JAVA_OPTIONS>
                       <PN_TRACE_FRM>0</PN_TRACE_FRM>
