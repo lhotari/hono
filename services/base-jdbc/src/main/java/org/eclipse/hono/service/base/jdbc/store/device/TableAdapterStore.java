@@ -13,6 +13,7 @@
 
 package org.eclipse.hono.service.base.jdbc.store.device;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 
 import org.eclipse.hono.deviceregistry.service.credentials.CredentialKey;
 import org.eclipse.hono.deviceregistry.service.device.DeviceKey;
+import org.eclipse.hono.service.base.jdbc.store.SQL;
 import org.eclipse.hono.service.base.jdbc.store.Statement;
 import org.eclipse.hono.service.base.jdbc.store.StatementConfiguration;
 import org.eclipse.hono.service.management.credentials.CommonCredential;
@@ -48,6 +50,7 @@ public class TableAdapterStore extends AbstractDeviceStore {
 
     private final Statement findCredentialsStatement;
     private final Statement resolveGroupsStatement;
+    private final String dialect;
 
     /**
      * Create a new instance.
@@ -56,8 +59,9 @@ public class TableAdapterStore extends AbstractDeviceStore {
      * @param tracer The tracer to use.
      * @param cfg The SQL statement configuration.
      */
-    public TableAdapterStore(final SQLClient client, final Tracer tracer, final StatementConfiguration cfg) {
+    public TableAdapterStore(final SQLClient client, final Tracer tracer, final StatementConfiguration cfg, final String dialect) {
         super(client, tracer, cfg);
+        this.dialect = dialect;
         cfg.dump(log);
 
         this.findCredentialsStatement = cfg
@@ -215,7 +219,7 @@ public class TableAdapterStore extends AbstractDeviceStore {
 
         final var expanded = this.resolveGroupsStatement.expand(params -> {
             params.put("tenant_id", tenantId);
-            params.put("group_ids", viaGroups.toArray(String[]::new));
+            params.put("group_ids", convertToArrayValue(viaGroups));
         });
 
         log.debug("resolveGroupMembers - statement: {}", expanded);
@@ -242,5 +246,14 @@ public class TableAdapterStore extends AbstractDeviceStore {
 
                 .onComplete(x -> span.finish());
 
+    }
+
+    private Object convertToArrayValue(Collection<String> values) {
+        // SQLServer drivers fails to recognize String array value, pass as CSV string instead and
+        // use string_split function in SQL to convert to array value
+        if (dialect.equals(SQL.DIALECT_SQLSERVER)) {
+            return String.join(",", values);
+        }
+        return values.toArray(String[]::new);
     }
 }

@@ -22,6 +22,7 @@ import org.eclipse.hono.service.base.jdbc.config.JdbcProperties;
 
 import io.opentracing.Tracer;
 import io.vertx.core.Vertx;
+import org.eclipse.hono.service.base.jdbc.store.SQL;
 
 /**
  * Helper class for device registry stores.
@@ -97,7 +98,8 @@ public final class DeviceStores {
             return new TableAdapterStore(
                     JdbcProperties.dataSource(vertx, properties),
                     tracer,
-                    Configurations.tableConfiguration(properties.getUrl(), credentials, registrations, groups));
+                    Configurations.tableConfiguration(properties.getUrl(), credentials, registrations, groups),
+                    SQL.getDatabaseDialect(properties.getUrl()));
 
         }
     }
