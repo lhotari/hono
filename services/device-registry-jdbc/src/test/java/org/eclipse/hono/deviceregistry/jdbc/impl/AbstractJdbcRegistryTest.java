@@ -118,7 +118,7 @@ abstract class AbstractJdbcRegistryTest {
             case SQLSERVER:
                 MSSQL_SERVER_CONTAINER.start();
                 jdbc.setDriverClass("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-                jdbc.setUrl(MSSQL_SERVER_CONTAINER.getJdbcUrl());
+                jdbc.setUrl(MSSQL_SERVER_CONTAINER.getJdbcUrl() + ";SelectMethod=Cursor");
                 jdbc.setUsername(MSSQL_SERVER_CONTAINER.getUsername());
                 jdbc.setPassword(MSSQL_SERVER_CONTAINER.getPassword());
                 createNewPerTestSchemaAndUser(jdbc);
