@@ -60,6 +60,7 @@
     <mockito.version>3.3.3</mockito.version>
     <mongodb.version>4.0.20</mongodb.version>
     <mongo-java-driver.version>3.10.1</mongo-java-driver.version>
+    <mssql-jdbc.version>8.4.1.jre11</mssql-jdbc.version>
     <netty.version>4.1.49.Final</netty.version>
     <netty.tcnative.version>2.0.30.Final</netty.tcnative.version>
     <opentracing.version>0.33.0</opentracing.version>
@@ -704,6 +705,12 @@
         <groupId>org.postgresql</groupId>
         <artifactId>postgresql</artifactId>
         <version>${postgresql.version}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.microsoft.sqlserver</groupId>
+        <artifactId>mssql-jdbc</artifactId>
+        <version>${mssql-jdbc.version}</version>
         <scope>runtime</scope>
       </dependency>
 
