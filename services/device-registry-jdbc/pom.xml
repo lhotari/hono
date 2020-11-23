@@ -104,6 +104,19 @@
                         <org.eclipse.hono.service.base.jdbc.store.skipDumpingStatementConfiguration>true</org.eclipse.hono.service.base.jdbc.store.skipDumpingStatementConfiguration>
                     </systemProperties>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>sqlserver-tests</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <systemProperties>
+                                <AbstractJdbcRegistryTest.databaseType>sqlserver</AbstractJdbcRegistryTest.databaseType>
+                            </systemProperties>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
