@@ -249,9 +249,13 @@ public class TableAdapterStore extends AbstractDeviceStore {
     }
 
     private Object convertToArrayValue(Collection<String> values) {
-        // SQLServer drivers fails to recognize String array value, pass as CSV string instead and
-        // use string_split function in SQL to convert to array value
-        if (dialect.equals(SQL.DIALECT_SQLSERVER)) {
+        // SQLServer and Postgres driver fails to recognize String array value
+        // pass as CSV string instead and use database specific functions
+        // to convert the CSV string to an array
+        // vertx jdbc doesn't support arrays, see https://stackoverflow.com/a/42295098
+        // TODO: introduce a better way to configure the way array values get passed
+        if (dialect.equals(SQL.DIALECT_SQLSERVER) ||
+            dialect.equals(SQL.DIALECT_POSTGRESQL)) {
             return String.join(",", values);
         }
         return values.toArray(String[]::new);
