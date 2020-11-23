@@ -58,7 +58,8 @@ abstract class AbstractJdbcRegistryTest {
         SQLSERVER,
         POSTGRESQL
     }
-    private static final DatabaseType DATABASE_TYPE = DatabaseType.valueOf(System.getProperty(AbstractJdbcRegistryTest.class.getSimpleName() + ".databaseType", "H2").toUpperCase());
+    private static final DatabaseType DEFAULT_DATABASE_TYPE = DatabaseType.H2;
+    private static final DatabaseType DATABASE_TYPE = DatabaseType.valueOf(System.getProperty(AbstractJdbcRegistryTest.class.getSimpleName() + ".databaseType", DEFAULT_DATABASE_TYPE.name()).toUpperCase());
     private static final Map<DatabaseType, JdbcDatabaseContainer<?>> DATABASE_CONTAINER_CACHE = new ConcurrentHashMap<>();
     private static final String SQLSERVER_DOCKER_IMAGE = "mcr.microsoft.com/mssql/server:2017-CU12";
     private static final String POSTGRESQL_DOCKER_IMAGE = "postgres:12-alpine";
