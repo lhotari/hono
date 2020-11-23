@@ -45,6 +45,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -158,6 +161,11 @@ abstract class AbstractJdbcRegistryTest {
                             break;
                         case POSTGRESQL:
                             container = new PostgreSQLContainer<>(POSTGRESQL_DOCKER_IMAGE);
+                            List<String> commandLine = new ArrayList<>(Arrays.asList(container.getCommandParts()));
+                            // resolve issue "FATAL: sorry, too many clients already"
+                            commandLine.add("-N");
+                            commandLine.add("500");
+                            container.setCommandParts(commandLine.toArray(new String[0]));
                             break;
                         default:
                             throw new UnsupportedOperationException(DATABASE_TYPE.name() + " is not supported.");
