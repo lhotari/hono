@@ -73,6 +73,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.eclipse.hono</groupId>
             <artifactId>hono-service-device-registry-base</artifactId>
             <version>${project.version}</version>

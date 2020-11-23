@@ -13,16 +13,12 @@
 
 package org.eclipse.hono.deviceregistry.jdbc.impl;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
-
+import io.opentracing.Span;
+import io.opentracing.Tracer;
+import io.opentracing.noop.NoopSpan;
+import io.opentracing.noop.NoopTracerFactory;
+import io.vertx.core.Vertx;
+import io.vertx.junit5.VertxExtension;
 import org.eclipse.hono.auth.SpringBasedHonoPasswordEncoder;
 import org.eclipse.hono.deviceregistry.jdbc.config.DeviceServiceProperties;
 import org.eclipse.hono.deviceregistry.jdbc.config.TenantServiceProperties;
@@ -39,24 +35,35 @@ import org.h2.Driver;
 import org.h2.tools.RunScript;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
-
-import io.opentracing.Span;
-import io.opentracing.Tracer;
-import io.opentracing.noop.NoopSpan;
-import io.opentracing.noop.NoopTracerFactory;
-import io.vertx.core.Vertx;
-import io.vertx.junit5.VertxExtension;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
+
+import java.io.IOException;
+import java.io.StringReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 @ExtendWith(VertxExtension.class)
 abstract class AbstractJdbcRegistryTest {
     enum DatabaseType {
         H2,
-        SQLSERVER
+        SQLSERVER,
+        POSTGRESQL
     }
     private static final DatabaseType DATABASE_TYPE = DatabaseType.valueOf(System.getProperty(AbstractJdbcRegistryTest.class.getSimpleName() + ".databaseType", "H2").toUpperCase());
-    private static final MSSQLServerContainer<?> MSSQL_SERVER_CONTAINER = DATABASE_TYPE == DatabaseType.SQLSERVER ? new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2017-CU12") : null;
-    private static final AtomicLong MSSQL_UNIQUE_ID = new AtomicLong(System.currentTimeMillis());
+    private static final Map<DatabaseType, JdbcDatabaseContainer<?>> DATABASE_CONTAINER_CACHE = new ConcurrentHashMap<>();
+    private static final String SQLSERVER_DOCKER_IMAGE = "mcr.microsoft.com/mssql/server:2017-CU12";
+    private static final String POSTGRESQL_DOCKER_IMAGE = "postgres:12-alpine";
+
+    private static final AtomicLong UNIQUE_ID_GENERATOR = new AtomicLong(System.currentTimeMillis());
 
     protected static final Span SPAN = NoopSpan.INSTANCE;
 
@@ -110,18 +117,24 @@ abstract class AbstractJdbcRegistryTest {
 
     private JdbcProperties resolveJdbcProperties() {
         final var jdbc = new JdbcProperties();
+        if (DATABASE_TYPE != DatabaseType.H2) {
+            JdbcDatabaseContainer<?> databaseContainer = getDatabaseContainer();
+            jdbc.setDriverClass(databaseContainer.getDriverClassName());
+            jdbc.setUrl(databaseContainer.getJdbcUrl());
+            jdbc.setUsername(databaseContainer.getUsername());
+            jdbc.setPassword(databaseContainer.getPassword());
+        }
         switch (DATABASE_TYPE) {
             case H2:
                 jdbc.setDriverClass(Driver.class.getName());
                 jdbc.setUrl("jdbc:h2:" + BASE_DIR.resolve(UUID.randomUUID().toString()).toAbsolutePath());
                 break;
             case SQLSERVER:
-                MSSQL_SERVER_CONTAINER.start();
-                jdbc.setDriverClass("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-                jdbc.setUrl(MSSQL_SERVER_CONTAINER.getJdbcUrl() + ";SelectMethod=Cursor");
-                jdbc.setUsername(MSSQL_SERVER_CONTAINER.getUsername());
-                jdbc.setPassword(MSSQL_SERVER_CONTAINER.getPassword());
-                createNewPerTestSchemaAndUser(jdbc);
+                jdbc.setUrl(jdbc.getUrl() + ";SelectMethod=Cursor");
+                createNewPerTestSchemaAndUserForSQLServer(jdbc);
+                break;
+            case POSTGRESQL:
+                createNewPerTestSchemaForPostgres(jdbc);
                 break;
             default:
                 throw new UnsupportedOperationException(DATABASE_TYPE.name() + " is not supported.");
@@ -134,13 +147,37 @@ abstract class AbstractJdbcRegistryTest {
         return jdbc;
     }
 
-    void createNewPerTestSchemaAndUser(JdbcProperties jdbc) {
-        String schemaName = "test" + MSSQL_UNIQUE_ID.incrementAndGet();
-        String userName = "user" + MSSQL_UNIQUE_ID.incrementAndGet();
+    private JdbcDatabaseContainer<?> getDatabaseContainer() {
+        return DATABASE_CONTAINER_CACHE.computeIfAbsent(DATABASE_TYPE,
+                __ -> {
+                    JdbcDatabaseContainer<?> container;
+                    switch (DATABASE_TYPE) {
+                        case SQLSERVER:
+                            container = new MSSQLServerContainer<>(SQLSERVER_DOCKER_IMAGE);
+                            break;
+                        case POSTGRESQL:
+                            container = new PostgreSQLContainer<>(POSTGRESQL_DOCKER_IMAGE);
+                            break;
+                        default:
+                            throw new UnsupportedOperationException(DATABASE_TYPE.name() + " is not supported.");
+                    }
+                    container.start();
+                    return container;
+                });
+    }
+
+    void createNewPerTestSchemaAndUserForSQLServer(JdbcProperties jdbc) {
+        String schemaName = "test" + UNIQUE_ID_GENERATOR.incrementAndGet();
+        String userName = "user" + UNIQUE_ID_GENERATOR.incrementAndGet();
         String sql = "create login " + userName + " with password='" + jdbc.getPassword() + "';\n" +
                 "create schema " + schemaName + ";\n" +
                 "create user " + userName + " for login " + userName + " with default_schema = " + schemaName + ";\n" +
                 "exec sp_addrolemember 'db_owner', '" + userName + "';\n";
+        executeSQLScript(jdbc, sql);
+        jdbc.setUsername(userName);
+    }
+
+    private void executeSQLScript(JdbcProperties jdbc, String sql) {
         try (
                 var connection = DriverManager.getConnection(jdbc.getUrl(), jdbc.getUsername(), jdbc.getPassword());
                 var script = new StringReader(sql)
@@ -149,7 +186,12 @@ abstract class AbstractJdbcRegistryTest {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-        jdbc.setUsername(userName);
+    }
+
+    private void createNewPerTestSchemaForPostgres(JdbcProperties jdbc) {
+        String schemaName = "testschema" + UNIQUE_ID_GENERATOR.incrementAndGet();
+        executeSQLScript(jdbc, "create schema "  + schemaName);
+        jdbc.setUrl(jdbc.getUrl() + "&currentSchema=" + schemaName);
     }
 
     @BeforeEach
