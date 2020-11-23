@@ -58,6 +58,7 @@ public class TableAdapterStore extends AbstractDeviceStore {
      * @param client The SQL client ot use.
      * @param tracer The tracer to use.
      * @param cfg The SQL statement configuration.
+     * @param dialect Database type, from the JDBC URL scheme
      */
     public TableAdapterStore(final SQLClient client, final Tracer tracer, final StatementConfiguration cfg, final String dialect) {
         super(client, tracer, cfg);
@@ -248,7 +249,7 @@ public class TableAdapterStore extends AbstractDeviceStore {
 
     }
 
-    private Object convertToArrayValue(Collection<String> values) {
+    private Object convertToArrayValue(final Collection<String> values) {
         // SQLServer and Postgres driver fails to recognize String array value
         // pass as CSV string instead and use database specific functions
         // to convert the CSV string to an array

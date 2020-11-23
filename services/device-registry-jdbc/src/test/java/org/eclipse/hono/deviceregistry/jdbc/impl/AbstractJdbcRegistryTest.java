@@ -13,12 +13,21 @@
 
 package org.eclipse.hono.deviceregistry.jdbc.impl;
 
-import io.opentracing.Span;
-import io.opentracing.Tracer;
-import io.opentracing.noop.NoopSpan;
-import io.opentracing.noop.NoopTracerFactory;
-import io.vertx.core.Vertx;
-import io.vertx.junit5.VertxExtension;
+import java.io.IOException;
+import java.io.StringReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.eclipse.hono.auth.SpringBasedHonoPasswordEncoder;
 import org.eclipse.hono.deviceregistry.jdbc.config.DeviceServiceProperties;
 import org.eclipse.hono.deviceregistry.jdbc.config.TenantServiceProperties;
@@ -39,20 +48,12 @@ import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import io.opentracing.Span;
+import io.opentracing.Tracer;
+import io.opentracing.noop.NoopSpan;
+import io.opentracing.noop.NoopTracerFactory;
+import io.vertx.core.Vertx;
+import io.vertx.junit5.VertxExtension;
 
 @ExtendWith(VertxExtension.class)
 abstract class AbstractJdbcRegistryTest {
@@ -61,6 +62,8 @@ abstract class AbstractJdbcRegistryTest {
         SQLSERVER,
         POSTGRESQL
     }
+    protected static final Span SPAN = NoopSpan.INSTANCE;
+
     private static final DatabaseType DEFAULT_DATABASE_TYPE = DatabaseType.H2;
     private static final DatabaseType DATABASE_TYPE = DatabaseType.valueOf(System.getProperty(AbstractJdbcRegistryTest.class.getSimpleName() + ".databaseType", DEFAULT_DATABASE_TYPE.name()).toUpperCase());
     private static final Map<DatabaseType, JdbcDatabaseContainer<?>> DATABASE_CONTAINER_CACHE = new ConcurrentHashMap<>();
@@ -68,8 +71,6 @@ abstract class AbstractJdbcRegistryTest {
     private static final String POSTGRESQL_DOCKER_IMAGE = "postgres:12-alpine";
 
     private static final AtomicLong UNIQUE_ID_GENERATOR = new AtomicLong(System.currentTimeMillis());
-
-    protected static final Span SPAN = NoopSpan.INSTANCE;
 
     private static final Tracer TRACER = NoopTracerFactory.create();
     private static final Path EXAMPLE_SQL_BASE = Path.of("..", "base-jdbc", "src", "main", "sql", DATABASE_TYPE.name().toLowerCase());
@@ -122,7 +123,7 @@ abstract class AbstractJdbcRegistryTest {
     private JdbcProperties resolveJdbcProperties() {
         final var jdbc = new JdbcProperties();
         if (DATABASE_TYPE != DatabaseType.H2) {
-            JdbcDatabaseContainer<?> databaseContainer = getDatabaseContainer();
+            final JdbcDatabaseContainer<?> databaseContainer = getDatabaseContainer();
             jdbc.setDriverClass(databaseContainer.getDriverClassName());
             jdbc.setUrl(databaseContainer.getJdbcUrl());
             jdbc.setUsername(databaseContainer.getUsername());
@@ -154,14 +155,14 @@ abstract class AbstractJdbcRegistryTest {
     private JdbcDatabaseContainer<?> getDatabaseContainer() {
         return DATABASE_CONTAINER_CACHE.computeIfAbsent(DATABASE_TYPE,
                 __ -> {
-                    JdbcDatabaseContainer<?> container;
+                    final JdbcDatabaseContainer<?> container;
                     switch (DATABASE_TYPE) {
                         case SQLSERVER:
                             container = new MSSQLServerContainer<>(SQLSERVER_DOCKER_IMAGE);
                             break;
                         case POSTGRESQL:
                             container = new PostgreSQLContainer<>(POSTGRESQL_DOCKER_IMAGE);
-                            List<String> commandLine = new ArrayList<>(Arrays.asList(container.getCommandParts()));
+                            final List<String> commandLine = new ArrayList<>(Arrays.asList(container.getCommandParts()));
                             // resolve issue "FATAL: sorry, too many clients already"
                             commandLine.add("-N");
                             commandLine.add("500");
@@ -175,10 +176,10 @@ abstract class AbstractJdbcRegistryTest {
                 });
     }
 
-    void createNewPerTestSchemaAndUserForSQLServer(JdbcProperties jdbc) {
-        String schemaName = "test" + UNIQUE_ID_GENERATOR.incrementAndGet();
-        String userName = "user" + UNIQUE_ID_GENERATOR.incrementAndGet();
-        String sql = "create login " + userName + " with password='" + jdbc.getPassword() + "';\n" +
+    void createNewPerTestSchemaAndUserForSQLServer(final JdbcProperties jdbc) {
+        final var schemaName = "test" + UNIQUE_ID_GENERATOR.incrementAndGet();
+        final var userName = "user" + UNIQUE_ID_GENERATOR.incrementAndGet();
+        final var sql = "create login " + userName + " with password='" + jdbc.getPassword() + "';\n" +
                 "create schema " + schemaName + ";\n" +
                 "create user " + userName + " for login " + userName + " with default_schema = " + schemaName + ";\n" +
                 "exec sp_addrolemember 'db_owner', '" + userName + "';\n";
@@ -186,7 +187,7 @@ abstract class AbstractJdbcRegistryTest {
         jdbc.setUsername(userName);
     }
 
-    private void executeSQLScript(JdbcProperties jdbc, String sql) {
+    private void executeSQLScript(final JdbcProperties jdbc, final String sql) {
         try (
                 var connection = DriverManager.getConnection(jdbc.getUrl(), jdbc.getUsername(), jdbc.getPassword());
                 var script = new StringReader(sql)
@@ -197,8 +198,8 @@ abstract class AbstractJdbcRegistryTest {
         }
     }
 
-    private void createNewPerTestSchemaForPostgres(JdbcProperties jdbc) {
-        String schemaName = "testschema" + UNIQUE_ID_GENERATOR.incrementAndGet();
+    private void createNewPerTestSchemaForPostgres(final JdbcProperties jdbc) {
+        final var schemaName = "testschema" + UNIQUE_ID_GENERATOR.incrementAndGet();
         executeSQLScript(jdbc, "create schema "  + schemaName);
         jdbc.setUrl(jdbc.getUrl() + "&currentSchema=" + schemaName);
     }

@@ -19,10 +19,10 @@ import java.util.function.Function;
 
 import org.eclipse.hono.service.base.jdbc.config.JdbcDeviceStoreProperties;
 import org.eclipse.hono.service.base.jdbc.config.JdbcProperties;
+import org.eclipse.hono.service.base.jdbc.store.SQL;
 
 import io.opentracing.Tracer;
 import io.vertx.core.Vertx;
-import org.eclipse.hono.service.base.jdbc.store.SQL;
 
 /**
  * Helper class for device registry stores.
