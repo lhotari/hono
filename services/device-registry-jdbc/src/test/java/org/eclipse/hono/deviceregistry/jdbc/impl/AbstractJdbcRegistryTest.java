@@ -158,7 +158,7 @@ abstract class AbstractJdbcRegistryTest {
                     final JdbcDatabaseContainer<?> container;
                     switch (DATABASE_TYPE) {
                         case SQLSERVER:
-                            container = new MSSQLServerContainer<>(SQLSERVER_DOCKER_IMAGE);
+                            container = new MSSQLServerContainer<>(SQLSERVER_DOCKER_IMAGE).acceptLicense();
                             break;
                         case POSTGRESQL:
                             container = new PostgreSQLContainer<>(POSTGRESQL_DOCKER_IMAGE);
