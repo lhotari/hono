@@ -152,6 +152,7 @@ public class FileBasedCredentialsServiceTest implements AbstractCredentialsServi
         switch (credentialsType) {
         case CredentialsConstants.SECRETS_TYPE_HASHED_PASSWORD:
         case CredentialsConstants.SECRETS_TYPE_X509_CERT:
+        case CredentialsConstants.SECRETS_TYPE_PRESHARED_KEY:
             return CacheDirective.maxAgeDirective(registrationConfig.getCacheMaxAge());
         default:
             return CacheDirective.noCacheDirective();
